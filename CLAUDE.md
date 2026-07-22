@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 작업 시 알아야 할 규약
 
 - 가이드가 정의하는 목표 구조: 루트 `.pr_agent.toml`, `.github/workflows/global-review.yml`, `docs/guide.md` — 파일 실존 여부는 디스크 상태에서 확인할 것.
-- **엔드포인트**: 지연 최소화를 위해 항상 **글로벌 전용 엔드포인트**(GLM `https://api.z.ai/api/coding/paas/v4`, MiniMax `https://api.minimax.io`)를 사용하고, 중국 내수용 주소(`bigmodel.cn`)는 사용하지 않습니다.
+- **엔드포인트**: 지연 최소화를 위해 항상 **글로벌 전용 엔드포인트**(GLM `https://api.z.ai/api/coding/paas/v4`, MiniMax `https://api.minimax.io/v1`)를 사용하고, 중국 내수용 주소(`bigmodel.cn`)는 사용하지 않습니다.
 - **API 키**는 Organization 시크릿 `GLOBAL_LLM_API_KEY`(All repositories 접근)로만 관리하며 어떤 파일에도 직접 기재하지 않습니다.
 - **리뷰 출력 언어** 기본값은 한국어(`reply_language = "ko"`)입니다.
 - `.pr_agent.toml` / `global-review.yml` 수정 시 항상 `docs/guide.md`의 예제와 일관성을 맞춰야 하며, 조직 전체에 영향이 가므로 diff를 최소화합니다.
