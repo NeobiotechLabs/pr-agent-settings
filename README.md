@@ -43,3 +43,8 @@
 ## 관리자 가이드
 
 Organization 시크릿(`GLOBAL_LLM_API_KEY`) 등록, Repository Rulesets 설정, 모델·엔드포인트 구성 등 전체 구축 절차는 **[docs/guide.md](docs/guide.md)** 를 참고하세요.
+
+
+## QODO Review Test
+
+PR 리뷰 테스트를 위한 파일 변경 건
