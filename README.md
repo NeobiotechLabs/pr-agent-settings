@@ -48,3 +48,5 @@ Organization 시크릿(`GLOBAL_LLM_API_KEY`) 등록, Repository Rulesets 설정,
 ## QODO Review Test
 
 PR 리뷰 테스트를 위한 파일 변경 건
+
+- 2차 검증 (2026-07-22): `custom_model_max_tokens`·`[pr_reviewer]`·`response_language` 설정 수정 후 `/review`·`/describe` 한국어 출력 확인
