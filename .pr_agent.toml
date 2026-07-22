@@ -1,0 +1,15 @@
+# .pr_agent.toml
+[github_app]
+# PR 생성/재오픈/수정 시 자동으로 실행할 기본 명령어
+pr_commands = ["/review", "/describe"]
+
+[config]
+# 사용하려는 모델 코드 기입 (예: glm-5, minimax-m3 등)
+model = "glm-5"
+model_wrapper = "OpenAI"
+fallback_model = "glm-5"
+
+[pr_review]
+# AI 리뷰어의 성격 및 출력 언어 설정
+require_score_review = true
+reply_language = "ko" # 한국어로 리뷰 출력

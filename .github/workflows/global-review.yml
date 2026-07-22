@@ -1,0 +1,26 @@
+name: Global AI PR Reviewer
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  # PR 댓글 창에 입력된 수동 명령어(/review, /improve, /ask)를 감지하기 위한 트리거 (가이드 §6)
+  issue_comment:
+
+jobs:
+  pr_agent_job:
+    # 봇 자신의 댓글에는 응답하지 않도록 하여 무한 루프 방지
+    if: ${{ github.event.sender.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Run Qodo Merge (PR-Agent)
+        uses: The-PR-Agent/pr-agent@main
+        env:
+          OPENAI_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
+          # GitHub 인증 토큰 (GitHub가 자동으로 제공) — PR에 리뷰 댓글을 작성하려면 필수
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
+          OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
+          # OPENAI_API_BASE: "https://api.minimax.io" # MiniMax 사용 시
