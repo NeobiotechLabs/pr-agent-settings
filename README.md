@@ -56,3 +56,4 @@ curl https://api.z.ai/api/coding/paas/v4/chat/completions -H "Authorization: Bea
 - .pr_agent.toml 파일 수정 (아래 라인 추가)
 [openai]
 api_base = "https://api.z.ai/api/coding/paas/v4"
+- 2차 검증 (2026-07-22): `custom_model_max_tokens`·`[pr_reviewer]`·`response_language` 설정 수정 후 `/review`·`/describe` 한국어 출력 확인
