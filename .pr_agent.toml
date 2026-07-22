@@ -6,7 +6,6 @@ pr_commands = ["/review", "/describe"]
 [config]
 # 사용하려는 모델 코드 기입 — litellm 프로바이더 접두사 필수 (예: GLM은 zai/glm-5, OpenAI-호환 커스텀은 openai/<모델>)
 model = "zai/glm-5"
-model_wrapper = "OpenAI"
 fallback_model = "zai/glm-5"
 # 내장 fallback(gpt-5.4-mini)은 Z.ai에서 400(Unknown Model)을 반환하므로 비활성화
 fallback_models = []
@@ -14,6 +13,9 @@ fallback_models = []
 custom_model_max_tokens = 131072
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
+
+[openai]
+api_base = "https://api.z.ai/api/coding/paas/v4"
 
 [pr_reviewer]
 # AI 리뷰어의 성격 설정 (주의: 섹션명은 pr_review가 아니라 pr_reviewer)
