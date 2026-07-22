@@ -47,11 +47,14 @@ pr_commands = ["/review", "/describe"]
 model = "glm-5"
 model_wrapper = "OpenAI"
 fallback_model = "glm-5"
+# 내부에 등록되지 않은 커스텀 모델(glm-5 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
+custom_model_max_tokens = 131072
+# 리뷰 출력 언어: 한국어
+response_language = "ko"
 
-[pr_review]
-# AI 리뷰어의 성격 및 출력 언어 설정
+[pr_reviewer]
+# AI 리뷰어의 성격 설정 (주의: 섹션명은 pr_review가 아니라 pr_reviewer)
 require_score_review = true
-reply_language = "ko" # 한국어로 리뷰 출력
 ```
 
 3. 이어서 `.github/workflows/global-review.yml` 경로에 워크플로우 파일을 생성하고 아래 코드를 작성합니다.
