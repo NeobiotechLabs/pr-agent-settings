@@ -48,3 +48,5 @@ Organization 시크릿(`GLOBAL_LLM_API_KEY`) 등록, Repository Rulesets 설정,
 ## QODO Review Test
 
 PR 리뷰 테스트를 위한 파일 변경 건
+
+- 3차 검증 (2026-07-22): litellm `zai/` 모델 접두사(`zai/glm-5`) 적용 후 `/review`·`/describe` 한국어 출력 확인
