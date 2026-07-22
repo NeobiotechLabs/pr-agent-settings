@@ -49,4 +49,11 @@ Organization 시크릿(`GLOBAL_LLM_API_KEY`) 등록, Repository Rulesets 설정,
 
 PR 리뷰 테스트를 위한 파일 변경 건
 
+- 3차 검증 (2026-07-22): litellm `zai/` 모델 접두사(`zai/glm-5`) 적용 후 `/review`·`/describe` 한국어 출력 확인
+
+curl https://api.z.ai/api/coding/paas/v4/chat/completions -H "Authorization: Bearer e9c2f41d80194dbda94663babf072f35.gT4AqRThCTIkvbhJ" -H "Content-Type: application/json" -d '{"model":"glm-5","messages":[{"role":"user","content":"ping"}],"max_tokens":5}'
+
+- .pr_agent.toml 파일 수정 (아래 라인 추가)
+[openai]
+api_base = "https://api.z.ai/api/coding/paas/v4"
 - 2차 검증 (2026-07-22): `custom_model_max_tokens`·`[pr_reviewer]`·`response_language` 설정 수정 후 `/review`·`/describe` 한국어 출력 확인
