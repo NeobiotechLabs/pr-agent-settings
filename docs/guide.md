@@ -44,9 +44,12 @@ pr_commands = ["/review", "/describe"]
 
 [config]
 # 사용하려는 모델 코드 기입 (예: glm-5, minimax-m3 등)
-model = "glm-5"
+# 커스텀 OpenAI-호환 엔드포인트 모델은 litellm 라우팅을 위해 반드시 "openai/" 접두사 필요
+model = "openai/glm-5"
 model_wrapper = "OpenAI"
-fallback_model = "glm-5"
+fallback_model = "openai/glm-5"
+# 내장 fallback(gpt-5.4-mini)은 Z.ai에서 400(Unknown Model)을 반환하므로 비활성화
+fallback_models = []
 # 내부에 등록되지 않은 커스텀 모델(glm-5 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
 custom_model_max_tokens = 131072
 # 리뷰 출력 언어: 한국어
