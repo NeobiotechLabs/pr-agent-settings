@@ -51,7 +51,7 @@ PR 리뷰 테스트를 위한 파일 변경 건
 
 - 3차 검증 (2026-07-22): litellm `zai/` 모델 접두사(`zai/glm-5`) 적용 후 `/review`·`/describe` 한국어 출력 확인
 
-curl https://api.z.ai/api/coding/paas/v4/chat/completions -H "Authorization: Bearer e9c2f41d80194dbda94663babf072f35.gT4AqRThCTIkvbhJ" -H "Content-Type: application/json" -d '{"model":"glm-5","messages":[{"role":"user","content":"ping"}],"max_tokens":5}'
+<!-- 테스트용 curl 명령어에 API 키가 평문으로 노출되어 제거함 — API 키는 Organization 시크릿(GLOBAL_LLM_API_KEY)으로만 관리합니다 -->
 
 - .pr_agent.toml 파일 수정 (아래 라인 추가)
 [openai]
