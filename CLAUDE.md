@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **전역 주입**: `.github/workflows/global-review.yml`은 조직 Rulesets("Require a workflow to pass before merging", Repository: `pr-agent-settings`)에 맵핑되어 조직 내 모든 저장소의 PR에서 실행됩니다. 이 저장소 내부에서 직접 트리거되는 워크플로가 아닙니다.
 2. **설정 우선순위**: 대상 저장소가 자체 루트에 `.pr_agent.toml`을 두면, 이 저장소의 전역 `.pr_agent.toml`보다 **개별 저장소 설정이 우선(Override)** 적용됩니다.
-3. **알려진 함정**: 대상 저장소에 `.github/workflows/*.yml` 파일이 하나도 없는 완전 빈 상태면 전역 워크플로가 실행되지 않습니다. 더미 파일(`blank.yml`) 추가로 해결하며, 이미 CI가 있는 저장소는 조치가 필요 없습니다.
+3. **알려진 함정**: 대상 저장소에 `.github/workflows/*.yml` 파일이 하나도 없는 완전 빈 상태면 전역 워크플로가 실행되지 않습니다. 워크플로 표지 파일(`pr_review.yml`) 추가로 해결하며, 이미 CI가 있는 저장소는 조치가 필요 없습니다.
 4. **단일 출처 문서**: `docs/guide.md`가 이 시스템의 구축·연동 가이드이자 설정값·워크플로 내용·Rulesets/시크릿 등록 절차의 기준 문서입니다.
 
 ## 작업 시 알아야 할 규약
