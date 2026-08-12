@@ -22,5 +22,5 @@ jobs:
           # GitHub 인증 토큰 (GitHub가 자동으로 제공) — PR에 리뷰 댓글을 작성하려면 필수
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
-          OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
-          # OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
+          # OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
+          OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
