@@ -18,7 +18,7 @@ jobs:
       - name: Run Qodo Merge (PR-Agent)
         uses: The-PR-Agent/pr-agent@main
         env:
-          OPENAI_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
+          # OPENAI_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
           # litellm은 provider별로 다른 환경변수를 확인 — 둘 다 설정하여 어떤 모델이든 대응
           # (GLM은 OPENAI_API_KEY, MiniMax는 MINIMAX_API_KEY를 우선 확인)
           MINIMAX_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
