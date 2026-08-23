@@ -19,6 +19,9 @@ jobs:
         uses: The-PR-Agent/pr-agent@main
         env:
           OPENAI_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
+          # litellm은 provider별로 다른 환경변수를 확인 — 둘 다 설정하여 어떤 모델이든 대응
+          # (GLM은 OPENAI_API_KEY, MiniMax는 MINIMAX_API_KEY를 우선 확인)
+          MINIMAX_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
           # GitHub 인증 토큰 (GitHub가 자동으로 제공) — PR에 리뷰 댓글을 작성하려면 필수
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
