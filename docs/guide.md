@@ -1,7 +1,7 @@
 # [가이드] Organization 전역 AI PR 자동 리뷰 시스템 구축 및 연동 (Qodo Merge)
 
 * **작성일**: 2026-07-22
-* **마지막 수정**: 2026-07-23 — 워크플로 표지 파일(pr_review.yml) 유효 YAML 요건, Rulesets 대상 브랜치 함정 및 "Waiting for workflow to run" 해소법, 긴급 머지용 Bypass list, toml 예시 실설정 일치화
+* **마지막 수정**: 2026-08-27 — 댓글 명령 미지원 명시, PR별 동시성 제어 및 10분 타임아웃, push 리뷰 설정, PAT 사용 목적 반영
 * **문서 목적**: Gemini Code Assist 서비스 중단에 따른 대체재로, 보유 중인 프론티어 LLM API(GLM/MiniMax)와 오픈소스 Qodo Merge(구 PR-Agent)를 결합하여 **Organization 내 모든 Repository에 AI PR 리뷰 시스템을 일괄 적용**하는 방법을 안내합니다.
 
 ---
@@ -69,14 +69,16 @@ name: Global AI PR Reviewer
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-  # PR 댓글 창에 입력된 수동 명령어(/review, /improve, /ask)를 감지하기 위한 트리거 (가이드 §6)
-  issue_comment:
+
+# 동일 PR에 새 이벤트가 발생하면 이전 리뷰 실행을 취소하여 대기열 누적 방지
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   pr_agent_job:
-    # 봇 자신의 댓글에는 응답하지 않도록 하여 무한 루프 방지
-    if: ${{ github.event.sender.type != 'Bot' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       issues: write
       pull-requests: write
@@ -89,11 +91,16 @@ jobs:
           # litellm은 provider별로 다른 환경변수를 확인 — 둘 다 설정하여 어떤 모델이든 대응
           # (GLM은 OPENAI_API_KEY, MiniMax는 MINIMAX_API_KEY를 우선 확인)
           MINIMAX_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
-          # GitHub 인증 토큰 (GitHub가 자동으로 제공) — PR에 리뷰 댓글을 작성하려면 필수
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 중앙 비공개 pr-agent-settings 설정과 대상 PR에 모두 접근 가능한 Organization PAT
+          GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "true"
+          github_action_config.auto_improve: "false"
+          github_action_config.handle_push_trigger: "true"
+          github_action_config.push_commands: '["/review", "/describe"]'
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
-          OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
-          # OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
+          # OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
+          OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
 ```
 
 ---
@@ -106,6 +113,12 @@ jobs:
    * **Name**: `GLOBAL_LLM_API_KEY`
    * **Value**: [보유 중인 GLM 또는 MiniMax API Key 입력]
    * **Repository access**: **All repositories** 선택
+4. 중앙 설정 저장소가 비공개인 경우, 대상 저장소와 `pr-agent-settings`를 모두 읽고 PR 댓글을 작성할 수 있는 PAT도 등록합니다.
+   * **Name**: `GIT_PAT`
+   * **권한**: 대상 저장소 및 `pr-agent-settings`의 Contents 읽기, Issues/Pull requests 쓰기
+   * **Repository access**: AI 리뷰를 적용할 저장소와 `pr-agent-settings` 포함
+
+> 기본 `secrets.GITHUB_TOKEN`은 워크플로가 실행되는 대상 저장소에만 한정되므로, 다른 비공개 저장소인 `pr-agent-settings`의 전역 설정을 읽는 현재 구조에는 사용할 수 없습니다. 중앙 설정 저장소가 공개이거나 GitHub App 설치 토큰으로 대체한 경우에만 PAT 제거를 검토하십시오.
 
 ---
 
@@ -153,12 +166,19 @@ GitHub 필수 워크플로는 **요구사항이 활성 상태로 적용된 이�
 
 ### 자동 기능
 * **PR 생성 시**: AI가 코드 변경점을 요약하여 상세 안내를 작성하고(`/describe`), 곧바로 한 줄 단위 코드 리뷰 댓글 및 취약점 분석 결과(`/review`)를 PR 창에 남깁니다.
+* **PR에 새 커밋 push 시**: 기존 실행이 진행 중이면 취소하고 최신 커밋 기준으로 `/review`와 `/describe`를 다시 실행합니다.
+* **실행 제한**: 동일 PR의 실행은 하나만 유지되며, 외부 LLM 또는 네트워크 응답이 지연되어도 10분 후 자동 종료됩니다.
 
-### 수동 명령어 (PR 댓글 창 활용)
-리뷰 도중 AI에게 추가 작업을 요청하고 싶다면 PR 댓글 창에 아래 명령어를 입력하면 봇이 감지하여 응답합니다.
-* `/review` : 전체 코드를 다시 정밀 리뷰합니다.
-* `/improve` : 코드 가독성 및 리팩토링 제안 사항을 코드 제안(Suggestion) 박스 형태로 받아봅니다.
-* `/ask [질문내용]` : 이 PR에 작성된 변경 코드에 대해 AI에게 궁금한 점을 직접 질문합니다.
+### 댓글 명령은 지원하지 않음
+현재 조직 전역 배포는 Repository Rulesets의 **Require a workflow to pass before merging** 기능으로 `pull_request` 이벤트를 주입하는 방식입니다. 이 방식은 대상 저장소의 PR 댓글에서 발생하는 `issue_comment` 또는 코드 리뷰 스레드의 `pull_request_review_comment` 이벤트를 중앙 워크플로로 전달하지 않습니다.
+
+따라서 PR 댓글에 `/review`, `/improve`, `/ask`를 입력해도 새 AI 리뷰 실행이 생성되지 않으며, 이 댓글 자체가 전역 워크플로의 queued/hang 원인이 되지도 않습니다. 재리뷰가 필요하면 새 커밋을 push하거나 PR을 닫았다 다시 여십시오.
+
+댓글 명령이 필요한 저장소는 다음 중 하나를 별도로 구성해야 합니다.
+* 해당 저장소의 기본 브랜치에 `issue_comment` 및 필요 시 `pull_request_review_comment`를 처리하는 전용 PR-Agent 워크플로 추가
+* 대상 저장소와 중앙 설정 저장소에 Qodo Merge GitHub App 설치
+
+> `/ask`를 PR의 일반 대화 댓글에서 사용할 때는 `issue_comment`, 코드 줄의 리뷰 스레드에서 사용할 때는 `pull_request_review_comment` 이벤트가 필요합니다. 이 구성은 현재 Ruleset 전역 워크플로의 지원 범위 밖입니다.
 
 ---
 
