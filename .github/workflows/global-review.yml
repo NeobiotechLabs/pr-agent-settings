@@ -3,10 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
-# 동일 PR에 새 이벤트가 발생하면 이전 리뷰 실행을 취소하여 대기열 누적 방지
+# 동일 PR 단위로 실행을 직렬화. cancel-in-progress는 반드시 false여야 함:
+# true일 때 최신 run이 'cancelled'로 종료되면 status가 보고되지 않아
+# 필수 체크가 "Expected — Waiting for status to be reported"로 영구 멈춤 (merge 블로킹)
 concurrency:
   group: ${{ github.workflow }}-${{ github.repository }}-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   pr_agent_job:

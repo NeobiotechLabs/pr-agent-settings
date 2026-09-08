@@ -70,10 +70,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
-# 동일 PR에 새 이벤트가 발생하면 이전 리뷰 실행을 취소하여 대기열 누적 방지
+# 동일 PR 단위로 실행을 직렬화. cancel-in-progress는 반드시 false여야 함:
+# true일 때 최신 run이 'cancelled'로 종료되면 status가 보고되지 않아
+# 필수 체크가 "Expected — Waiting for status to be reported"로 영구 멈춤 (merge 블로킹)
 concurrency:
   group: ${{ github.workflow }}-${{ github.repository }}-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   pr_agent_job:
@@ -143,6 +145,17 @@ GitHub 필수 워크플로는 **요구사항이 활성 상태로 적용된 이�
 * **해결책**: 해당 PR을 **닫았다 다시 열기(close + reopen)** 하거나 **새 커밋을 push**하여 새 PR 이벤트를 발생시키면 워크플로가 실행됩니다. close+reopen 시 `/review`·`/describe`도 함께 생성됩니다. (2026-07-23 DynamicNavigation PR #39에서 close+reopen으로 해소 확인)
 * 룰셋 적용 여부는 **Rulesets Insights** 또는 대상 PR의 **Checks** 탭에서 필수 체크가 실제로 생성되었는지 확인하십시오.
 
+### ⚠️ PR이 "Expected — Waiting for status to be reported"에 영구 멈출 때 (concurrency 함정)
+워크플로의 `concurrency`에 `cancel-in-progress: true`를 사용하면 필수 체크가 **영구 대기**하며 머지가 막힐 수 있습니다. 필수 체크는 해당 PR head의 **최신 run 상태**를 기준으로 판정하는데, GitHub는 concurrency 취소 순서를 보장하지 않아 **최신 run이 'cancelled'로 종료될 수 있고, cancelled run은 status를 보고하지 않으므로** 체크가 "Expected — Waiting for status to be reported" 상태에서 더 이상 진행되지 않기 때문입니다. (GitHub Support 공식 확인: [community #77942](https://github.com/orgs/community/discussions/77942), [community #26698](https://github.com/orgs/community/discussions/26698))
+* **특히 위험한 시나리오**: conflict가 장기간 방치된 PR에서 충돌 해결 커밋을 push하면 쌓여 있던 이벤트가 한꺼번에 처리되며 취소 경쟁이 발생하고, 이 상태에서는 **close + reopen조차 같은 concurrency 그룹의 잔여 run에 가로막혀 재현되지 않습니다.** (2026-09-08 실제 장애 사례 — Ruleset 체크 강제화를 해제하고 머지했던 사고)
+* **근본 해결**: 본 저장소의 `global-review.yml`은 `cancel-in-progress: false`로 설정되어 있어야 합니다. `true`로 되돌리지 마십시오. 큐 순차 실행의 비용(이전 run 대기)은 있지만, 최신 run이 항상 status를 보고하므로 머지 블로킹은 발생하지 않습니다.
+* **이미 멈춘 PR의 복구 방법** (확실성 순):
+  1. **빈 커밋 push** — `git commit --allow-empty -m "retrigger review" && git push` 로 새 `synchronize` 이벤트를 강제 발생 (가장 확실)
+  2. **Re-run** — 대상 저장소 Actions 탭에서 취소됐거나 실패한 해당 run 선택 → **Re-run all jobs**
+  3. **close + reopen** — `cancel-in-progress: false` 상태에서는 유효한 복구 수단 (과거 사례에서 해소 확인)
+  4. 위의 모든 방법이 실패하면 룰셋의 필수 워크플로 조건을 임시 해제 후 재등록하여 체크 상태를 초기화
+  5. 긴급 시 **Bypass list** 우회 머지 (아래 섹션 참조)
+
 ### 🚨 긴급 머지가 필요할 때 — Bypass list 설정 (권장)
 리뷰 완료 여부와 관계없이 긴급하게 머지해야 하는 경우가 있으므로, Rulesets의 **Bypass list**에 우회 권한을 지정해 둡니다.
 1. 해당 룰셋 편집 화면에서 **Bypass list** 섹션 → **Add bypass**를 클릭합니다.
@@ -166,8 +179,8 @@ GitHub 필수 워크플로는 **요구사항이 활성 상태로 적용된 이�
 
 ### 자동 기능
 * **PR 생성 시**: AI가 코드 변경점을 요약하여 상세 안내를 작성하고(`/describe`), 곧바로 한 줄 단위 코드 리뷰 댓글 및 취약점 분석 결과(`/review`)를 PR 창에 남깁니다.
-* **PR에 새 커밋 push 시**: 기존 실행이 진행 중이면 취소하고 최신 커밋 기준으로 `/review`와 `/describe`를 다시 실행합니다.
-* **실행 제한**: 동일 PR의 실행은 하나만 유지되며, 외부 LLM 또는 네트워크 응답이 지연되어도 10분 후 자동 종료됩니다.
+* **PR에 새 커밋 push 시**: 진행 중인 실행이 있으면 새 실행이 대기열에 들어가 순차 처리되고, 최신 커밋 기준으로 `/review`와 `/describe`가 다시 실행됩니다.
+* **실행 제한**: 동일 PR의 실행은 PR 단위 concurrency 그룹으로 직렬화되며, 외부 LLM 또는 네트워크 응답이 지연되어도 10분 후 자동 종료됩니다.
 
 ### 댓글 명령은 지원하지 않음
 현재 조직 전역 배포는 Repository Rulesets의 **Require a workflow to pass before merging** 기능으로 `pull_request` 이벤트를 주입하는 방식입니다. 이 방식은 대상 저장소의 PR 댓글에서 발생하는 `issue_comment` 또는 코드 리뷰 스레드의 `pull_request_review_comment` 이벤트를 중앙 워크플로로 전달하지 않습니다.
