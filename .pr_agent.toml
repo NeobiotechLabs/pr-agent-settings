@@ -15,6 +15,9 @@ fallback_models = []
 custom_model_max_tokens = 131072
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
+# LLM 1회 호출 타임아웃(초) — 기본값 120은 큰 diff의 /review 생성 중 타임아웃 유발
+# 재시도(retry_same_model_on_timeout) 포함 최악 2회 호출이므로 워크플로 timeout-minutes와 연동하여 조정
+ai_timeout = 300
 
 [openai]
 #api_base = "https://api.z.ai/api/coding/paas/v4"

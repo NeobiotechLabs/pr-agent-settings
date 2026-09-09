@@ -53,6 +53,8 @@ fallback_models = []
 custom_model_max_tokens = 131072
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
+# LLM 1회 호출 타임아웃(초) — 기본값 120은 큰 diff의 /review 생성 중 타임아웃 유발
+ai_timeout = 300
 
 [openai]
 api_base = "https://api.z.ai/api/coding/paas/v4"
@@ -80,7 +82,8 @@ concurrency:
 jobs:
   pr_agent_job:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # /review는 ai_timeout(300초)×재시도 1회까지 대기 가능하므로 여유 있는 상한 필요
+    timeout-minutes: 15
     permissions:
       issues: write
       pull-requests: write
