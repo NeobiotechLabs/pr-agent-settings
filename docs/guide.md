@@ -103,9 +103,11 @@ jobs:
           github_action_config.auto_improve: "false"
           github_action_config.handle_push_trigger: "true"
           github_action_config.push_commands: '["/review", "/describe"]'
+          # PR-Agent 2026-10-05 패치(#3908) 이후 전역 설정 저장소 이름을 명시해야 .pr_agent.toml이 적용됨
+          config.global_settings_repo: "pr-agent-settings"
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
-          # OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
-          OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
+          OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
+          # OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
 ```
 
 ---
