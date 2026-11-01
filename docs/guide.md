@@ -1,7 +1,7 @@
 # [가이드] Organization 전역 AI PR 자동 리뷰 시스템 구축 및 연동 (Qodo Merge)
 
 * **작성일**: 2026-07-22
-* **마지막 수정**: 2026-08-27 — 댓글 명령 미지원 명시, PR별 동시성 제어 및 10분 타임아웃, push 리뷰 설정, PAT 사용 목적 반영
+* **마지막 수정**: 2026-11-01 — PR 리뷰 모델을 Xiaomi MiMo(mimo-v2.6-pro)로 전환, MiMo 글로벌 엔드포인트(`api.xiaomimimo.com/v1`) 추가
 * **문서 목적**: Gemini Code Assist 서비스 중단에 따른 대체재로, 보유 중인 프론티어 LLM API(GLM/MiniMax)와 오픈소스 Qodo Merge(구 PR-Agent)를 결합하여 **Organization 내 모든 Repository에 AI PR 리뷰 시스템을 일괄 적용**하는 방법을 안내합니다.
 
 ---
@@ -11,14 +11,14 @@
 
 ```text
 [공용 저장소: pr-agent-settings]
-  ├── .pr_agent.toml          <-- 전체 AI 모델 설정 (GLM / MiniMax) 및 리뷰 규칙
+  ├── .pr_agent.toml          <-- 전체 AI 모델 설정 (Xiaomi MiMo, 대체 GLM / MiniMax) 및 리뷰 규칙
   └── .github/workflows/
         └── global-review.yml <-- GitHub Repository Rulesets에 의해 조직 내 전역 실행
 ```
 
 * **비용**: 인프라 비용 0원 (GitHub Actions 사용) + API 토큰 비용만 발생
 * **특징**: 프롬프트나 모델을 변경할 때 중앙 저장소의 파일만 수정하면 조직 전체에 즉시 실시간 반영됩니다.
-* **네트워크**: 지연 최소화를 위해 중국 내수용 주소(`bigmodel.cn`) 대신 글로벌 전용 엔드포인트 인프라(`api.z.ai` / `minimax.io`)를 적용합니다.
+* **네트워크**: 지연 최소화를 위해 중국 내수용 주소(`bigmodel.cn`) 대신 글로벌 전용 엔드포인트 인프라(`api.xiaomimimo.com` / `api.z.ai` / `minimax.io`)를 적용합니다.
 
 ---
 
@@ -28,6 +28,7 @@
 2. **LLM API Key 및 글로벌 엔드포인트 정보**
    * **GLM (Zhipu AI)**: `https://api.z.ai/api/coding/paas/v4` (코딩 최적화 글로벌 엔드포인트)
    * **MiniMax**: `https://api.minimax.io` (글로벌 리전 API 엔드포인트)
+   * **Xiaomi MiMo**: `https://api.xiaomimimo.com/v1` (OpenAI 호환 글로벌 엔드포인트 — 현재 사용 중)
 
 ---
 
@@ -45,11 +46,12 @@ pr_commands = ["/review", "/describe"]
 
 [config]
 # 사용하려는 모델 코드 기입 — litellm 프로바이더 접두사 필수 (예: GLM은 zai/glm-5, OpenAI-호환 커스텀은 openai/<모델>)
-model = "zai/glm-5"
-fallback_model = "zai/glm-5"
-# 내장 fallback(gpt-5.4-mini)은 Z.ai에서 400(Unknown Model)을 반환하므로 비활성화
+model = "openai/mimo-v2.6-pro"
+# fallback도 동일 프로바이더(Xiaomi MiMo) 사용 — GLOBAL_LLM_API_KEY가 Xiaomi 키이므로 타 프로바이더 fallback은 인증 불가
+fallback_model = "openai/mimo-v2.6-flash"
+# 내장 fallback(gpt-5.4-mini)은 커스텀 엔드포인트에서 400(Unknown Model)을 반환하므로 비활성화
 fallback_models = []
-# 내부에 등록되지 않은 커스텀 모델(glm-5 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
+# 내부에 등록되지 않은 커스텀 모델(mimo-v2.6-pro 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
 custom_model_max_tokens = 131072
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
@@ -57,7 +59,7 @@ response_language = "ko"
 ai_timeout = 300
 
 [openai]
-api_base = "https://api.z.ai/api/coding/paas/v4"
+api_base = "https://api.xiaomimimo.com/v1"
 
 [pr_reviewer]
 # AI 리뷰어의 성격 설정 (주의: 섹션명은 pr_review가 아니라 pr_reviewer)
@@ -106,8 +108,9 @@ jobs:
           # PR-Agent 2026-10-05 패치(#3908) 이후 전역 설정 저장소 이름을 명시해야 .pr_agent.toml이 적용됨
           config.global_settings_repo: "pr-agent-settings"
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
-          OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
+          # OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
           # OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
+          OPENAI_API_BASE: "https://api.xiaomimimo.com/v1" # Xiaomi MiMo 사용 시 (OpenAI 호환 글로벌 엔드포인트)
 ```
 
 ---
@@ -118,7 +121,7 @@ jobs:
 2. **New organization secret** 버튼을 클릭합니다.
 3. 아래 정보로 시크릿을 생성합니다.
    * **Name**: `GLOBAL_LLM_API_KEY`
-   * **Value**: [보유 중인 GLM 또는 MiniMax API Key 입력]
+   * **Value**: [보유 중인 Xiaomi MiMo API Key 입력 — 모델 전환 시 GLM/MiniMax 키로 교체 가능]
    * **Repository access**: **All repositories** 선택
 4. 중앙 설정 저장소가 비공개인 경우, 대상 저장소와 `pr-agent-settings`를 모두 읽고 PR 댓글을 작성할 수 있는 PAT도 등록합니다.
    * **Name**: `GIT_PAT`

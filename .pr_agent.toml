@@ -5,13 +5,15 @@ pr_commands = ["/review", "/describe"]
 
 [config]
 # 사용하려는 모델 코드 기입 — litellm 프로바이더 접두사 필수 (예: GLM은 zai/glm-5, OpenAI-호환 커스텀은 openai/<모델>)
-model = "zai/glm-5"
+# model = "zai/glm-5"
 # model = "minimax/MiniMax-M3"
+model = "openai/mimo-v2.6-pro"
 
-fallback_model = "zai/glm-5"
-# 내장 fallback(gpt-5.4-mini)은 Z.ai에서 400(Unknown Model)을 반환하므로 비활성화
+# fallback도 동일 프로바이더(Xiaomi MiMo) 사용 — GLOBAL_LLM_API_KEY가 Xiaomi 키이므로 타 프로바이더 fallback은 인증 불가
+fallback_model = "openai/mimo-v2.6-flash"
+# 내장 fallback(gpt-5.4-mini)은 커스텀 엔드포인트에서 400(Unknown Model)을 반환하므로 비활성화
 fallback_models = []
-# 내부에 등록되지 않은 커스텀 모델(glm-5 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
+# 내부에 등록되지 않은 커스텀 모델(mimo-v2.6-pro 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
 custom_model_max_tokens = 131072
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
@@ -20,8 +22,9 @@ response_language = "ko"
 ai_timeout = 300
 
 [openai]
-api_base = "https://api.z.ai/api/coding/paas/v4"
+#api_base = "https://api.z.ai/api/coding/paas/v4"
 #api_base = "https://api.minimax.io/v1"
+api_base = "https://api.xiaomimimo.com/v1"
 
 [pr_reviewer]
 # AI 리뷰어의 성격 설정 (주의: 섹션명은 pr_review가 아니라 pr_reviewer)
