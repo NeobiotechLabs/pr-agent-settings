@@ -24,7 +24,7 @@ ai_timeout = 300
 [openai]
 #api_base = "https://api.z.ai/api/coding/paas/v4"
 #api_base = "https://api.minimax.io/v1"
-api_base = "https://api.xiaomimimo.com/v1"
+api_base = "https://token-plan-sgp.xiaomimimo.com/v1"
 
 [pr_reviewer]
 # AI 리뷰어의 성격 설정 (주의: 섹션명은 pr_review가 아니라 pr_reviewer)
