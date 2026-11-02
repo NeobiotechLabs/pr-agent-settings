@@ -1,7 +1,7 @@
 # [가이드] Organization 전역 AI PR 자동 리뷰 시스템 구축 및 연동 (Qodo Merge)
 
 * **작성일**: 2026-07-22
-* **마지막 수정**: 2026-11-02 — mimo-v2.6-pro의 큰 diff 무응답 행(hang)으로 인해 primary를 mimo-v2.6-flash로 전환하고 pro를 fallback으로 강등
+* **마지막 수정**: 2026-11-02 — mimo-v2.6-pro의 큰 diff 무응답 행(hang)으로 primary를 mimo-v2.6-flash로 전환(flash도 동일 재현 → 모델 원인 아님), `max_model_tokens = 16000`으로 큰 diff 압축 유도
 * **문서 목적**: Gemini Code Assist 서비스 중단에 따른 대체재로, 보유 중인 프론티어 LLM API(GLM/MiniMax)와 오픈소스 Qodo Merge(구 PR-Agent)를 결합하여 **Organization 내 모든 Repository에 AI PR 리뷰 시스템을 일괄 적용**하는 방법을 안내합니다.
 
 ---
@@ -55,6 +55,9 @@ fallback_model = "openai/mimo-v2.6-pro"
 fallback_models = []
 # 내부에 등록되지 않은 커스텀 모델(mimo-v2.6-pro 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
 custom_model_max_tokens = 131072
+# 기본값 32000은 큰 PR에서 전체 diff 전송 → MiMo 게이트웨이 /review 행(hang) 유발 사례(NDI#5).
+# diff 압축 유도로 프롬프트 축소 (모델 컨텍스트 자체는 1M이라 여유 있음)
+max_model_tokens = 16000
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
 # LLM 1회 호출 타임아웃(초) — 기본값 120은 큰 diff의 /review 생성 중 타임아웃 유발
