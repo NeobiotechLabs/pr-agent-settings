@@ -1,7 +1,7 @@
 # [가이드] Organization 전역 AI PR 자동 리뷰 시스템 구축 및 연동 (Qodo Merge)
 
 * **작성일**: 2026-07-22
-* **마지막 수정**: 2026-11-01 — PR 리뷰 모델을 Xiaomi MiMo(mimo-v2.6-pro)로 전환, MiMo 글로벌 엔드포인트(`api.xiaomimimo.com/v1`) 추가
+* **마지막 수정**: 2026-11-02 — mimo-v2.6-pro의 큰 diff 무응답 행(hang)으로 인해 primary를 mimo-v2.6-flash로 전환하고 pro를 fallback으로 강등
 * **문서 목적**: Gemini Code Assist 서비스 중단에 따른 대체재로, 보유 중인 프론티어 LLM API(GLM/MiniMax)와 오픈소스 Qodo Merge(구 PR-Agent)를 결합하여 **Organization 내 모든 Repository에 AI PR 리뷰 시스템을 일괄 적용**하는 방법을 안내합니다.
 
 ---
@@ -46,9 +46,11 @@ pr_commands = ["/review", "/describe"]
 
 [config]
 # 사용하려는 모델 코드 기입 — litellm 프로바이더 접두사 필수 (예: GLM은 zai/glm-5, OpenAI-호환 커스텀은 openai/<모델>)
-model = "openai/mimo-v2.6-pro"
+# 2026-11-02: pro가 큰 diff /review에서 14분+ 무응답 행(hang) → job cancelled 사례 발생(NDI#5).
+# 응답 지연 리스크 회피를 위해 flash를 primary로, pro를 fallback으로 전환
+model = "openai/mimo-v2.6-flash"
 # fallback도 동일 프로바이더(Xiaomi MiMo) 사용 — GLOBAL_LLM_API_KEY가 Xiaomi 키이므로 타 프로바이더 fallback은 인증 불가
-fallback_model = "openai/mimo-v2.6-flash"
+fallback_model = "openai/mimo-v2.6-pro"
 # 내장 fallback(gpt-5.4-mini)은 커스텀 엔드포인트에서 400(Unknown Model)을 반환하므로 비활성화
 fallback_models = []
 # 내부에 등록되지 않은 커스텀 모델(mimo-v2.6-pro 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
