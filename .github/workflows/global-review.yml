@@ -13,7 +13,7 @@ concurrency:
 jobs:
   pr_agent_job:
     runs-on: ubuntu-latest
-    # /review는 ai_timeout(300초)×재시도 1회까지 대기 가능하므로 여유 있는 상한 필요
+    # 설명과 리뷰 각각 최대 두 모델을 호출할 수 있으므로 실행 준비 시간을 포함해 15분을 둔다.
     timeout-minutes: 15
     permissions:
       issues: write
@@ -21,7 +21,38 @@ jobs:
       contents: read
     steps:
       - name: Run Qodo Merge (PR-Agent)
-        uses: The-PR-Agent/pr-agent@main
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/pr-agent-deadline.py" <<'PYTHON'
+          import asyncio
+          from functools import wraps
+
+          from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+          from pr_agent.servers.github_action_runner import main
+
+          chat_completion = LiteLLMAIHandler.chat_completion
+
+          @wraps(chat_completion)
+          async def chat_with_deadline(self, *args, **kwargs):
+              # The transport timeout can reset on keep-alive traffic.
+              # TimeoutError advances PR-Agent to the next configured model.
+              async with asyncio.timeout(150):
+                  return await chat_completion(self, *args, **kwargs)
+
+          LiteLLMAIHandler.chat_completion = chat_with_deadline
+          main()
+          PYTHON
+
+          docker run --rm --entrypoint python \
+            --mount "type=bind,src=$RUNNER_TEMP/pr-agent-deadline.py,dst=/tmp/pr-agent-deadline.py,readonly" \
+            --mount "type=bind,src=$GITHUB_EVENT_PATH,dst=/tmp/pr-agent-event.json,readonly" \
+            --env GITHUB_EVENT_NAME --env GITHUB_EVENT_PATH=/tmp/pr-agent-event.json \
+            --env GITHUB_TOKEN --env OPENAI_API_KEY --env MINIMAX_API_KEY --env OPENAI_API_BASE \
+            --env 'github_action_config.auto_review=true' --env 'github_action_config.auto_describe=true' \
+            --env 'github_action_config.auto_improve=false' --env 'github_action_config.handle_push_trigger=true' \
+            --env 'github_action_config.push_commands=["/review", "/describe"]' --env 'config.global_settings_repo=pr-agent-settings' \
+            pragent/pr-agent@sha256:548e894a88071180832b2f4233f734d0acd0db1a879e2fcbaa70bac8b8372ebe \
+            /tmp/pr-agent-deadline.py
         env:
           OPENAI_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
           # litellm은 provider별로 다른 환경변수를 확인 — 둘 다 설정하여 어떤 모델이든 대응
@@ -29,13 +60,7 @@ jobs:
           MINIMAX_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
           # 중앙 비공개 pr-agent-settings 설정과 대상 PR에 모두 접근 가능한 Organization PAT
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
-          github_action_config.auto_review: "true"
-          github_action_config.auto_describe: "true"
-          github_action_config.auto_improve: "false"
-          github_action_config.handle_push_trigger: "true"
-          github_action_config.push_commands: '["/review", "/describe"]'
           # PR-Agent 2026-10-05 패치(#3908) 이후 전역 설정 저장소 이름을 명시해야 .pr_agent.toml이 적용됨
-          config.global_settings_repo: "pr-agent-settings"
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
           # OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
           # OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시

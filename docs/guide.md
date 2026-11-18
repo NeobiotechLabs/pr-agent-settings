@@ -22,6 +22,8 @@
 
 ---
 
+리뷰 모델별 실행을 150초로 제한한다. 기본 MiMo Flash가 시간 초과되면 같은 API 키를 사용하는 MiMo Pro로 전환한다. 두 모델 호출이 모두 실패하면 리뷰 워크플로도 실패한다.
+
 ## 2. 사전 준비 사항 (Prerequisites)
 작업을 시작하기 전 아래의 정보와 권한이 준비되어 있어야 합니다.
 1. **GitHub Organization Owner(관리자) 권한**
@@ -46,25 +48,30 @@ pr_commands = ["/review", "/describe"]
 
 [config]
 # 사용하려는 모델 코드 기입 — litellm 프로바이더 접두사 필수 (예: GLM은 zai/glm-5, OpenAI-호환 커스텀은 openai/<모델>)
+# model = "zai/glm-5"
+# model = "minimax/MiniMax-M3"
 # 2026-11-02: pro가 큰 diff /review에서 14분+ 무응답 행(hang) → job cancelled 사례 발생(NDI#5).
 # 응답 지연 리스크 회피를 위해 flash를 primary로, pro를 fallback으로 전환
 model = "openai/mimo-v2.6-flash"
+
 # fallback도 동일 프로바이더(Xiaomi MiMo) 사용 — GLOBAL_LLM_API_KEY가 Xiaomi 키이므로 타 프로바이더 fallback은 인증 불가
-fallback_model = "openai/mimo-v2.6-pro"
-# 내장 fallback(gpt-5.4-mini)은 커스텀 엔드포인트에서 400(Unknown Model)을 반환하므로 비활성화
-fallback_models = []
+fallback_models = ["openai/mimo-v2.6-pro"]
+retry_same_model_on_timeout = false
 # 내부에 등록되지 않은 커스텀 모델(mimo-v2.6-pro 등)은 토큰 한계를 반드시 명시 — 미설정 시 예측이 즉시 실패함
 custom_model_max_tokens = 131072
-# 기본값 32000은 큰 PR에서 전체 diff 전송 → MiMo 게이트웨이 /review 행(hang) 유발 사례(NDI#5).
-# diff 압축 유도로 프롬프트 축소 (모델 컨텍스트 자체는 1M이라 여유 있음)
+# 2026-11-02: 기본값 32000은 큰 PR에서 28k+ 전체 diff를 그대로 전송 → MiMo 게이트웨이에서
+# /review 생성이 13분+ 행(hang), ai_timeout 미발동(read-timeout은 keep-alive로 리셋) → job cancelled (NDI#5, pro/flash 동일 재현).
+# diff 압축을 유도해 프롬프트를 절반 이하로 축소 (모델 자체 컨텍스트는 1M으로 여유 있음 — 품질 저하 최소화)
 max_model_tokens = 16000
 # 리뷰 출력 언어: 한국어
 response_language = "ko"
-# LLM 1회 호출 타임아웃(초) — 기본값 120은 큰 diff의 /review 생성 중 타임아웃 유발
-ai_timeout = 300
+# 전송 타임아웃과 워크플로의 모델별 경과 시간 제한을 같은 값으로 둔다.
+ai_timeout = 150
 
 [openai]
-api_base = "https://api.xiaomimimo.com/v1"
+#api_base = "https://api.z.ai/api/coding/paas/v4"
+#api_base = "https://api.minimax.io/v1"
+api_base = "https://token-plan-sgp.xiaomimimo.com/v1"
 
 [pr_reviewer]
 # AI 리뷰어의 성격 설정 (주의: 섹션명은 pr_review가 아니라 pr_reviewer)
@@ -89,7 +96,7 @@ concurrency:
 jobs:
   pr_agent_job:
     runs-on: ubuntu-latest
-    # /review는 ai_timeout(300초)×재시도 1회까지 대기 가능하므로 여유 있는 상한 필요
+    # 설명과 리뷰 각각 최대 두 모델을 호출할 수 있으므로 실행 준비 시간을 포함해 15분을 둔다.
     timeout-minutes: 15
     permissions:
       issues: write
@@ -97,7 +104,38 @@ jobs:
       contents: read
     steps:
       - name: Run Qodo Merge (PR-Agent)
-        uses: The-PR-Agent/pr-agent@main
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/pr-agent-deadline.py" <<'PYTHON'
+          import asyncio
+          from functools import wraps
+
+          from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+          from pr_agent.servers.github_action_runner import main
+
+          chat_completion = LiteLLMAIHandler.chat_completion
+
+          @wraps(chat_completion)
+          async def chat_with_deadline(self, *args, **kwargs):
+              # The transport timeout can reset on keep-alive traffic.
+              # TimeoutError advances PR-Agent to the next configured model.
+              async with asyncio.timeout(150):
+                  return await chat_completion(self, *args, **kwargs)
+
+          LiteLLMAIHandler.chat_completion = chat_with_deadline
+          main()
+          PYTHON
+
+          docker run --rm --entrypoint python \
+            --mount "type=bind,src=$RUNNER_TEMP/pr-agent-deadline.py,dst=/tmp/pr-agent-deadline.py,readonly" \
+            --mount "type=bind,src=$GITHUB_EVENT_PATH,dst=/tmp/pr-agent-event.json,readonly" \
+            --env GITHUB_EVENT_NAME --env GITHUB_EVENT_PATH=/tmp/pr-agent-event.json \
+            --env GITHUB_TOKEN --env OPENAI_API_KEY --env MINIMAX_API_KEY --env OPENAI_API_BASE \
+            --env 'github_action_config.auto_review=true' --env 'github_action_config.auto_describe=true' \
+            --env 'github_action_config.auto_improve=false' --env 'github_action_config.handle_push_trigger=true' \
+            --env 'github_action_config.push_commands=["/review", "/describe"]' --env 'config.global_settings_repo=pr-agent-settings' \
+            pragent/pr-agent@sha256:548e894a88071180832b2f4233f734d0acd0db1a879e2fcbaa70bac8b8372ebe \
+            /tmp/pr-agent-deadline.py
         env:
           OPENAI_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
           # litellm은 provider별로 다른 환경변수를 확인 — 둘 다 설정하여 어떤 모델이든 대응
@@ -105,17 +143,11 @@ jobs:
           MINIMAX_API_KEY: ${{ secrets.GLOBAL_LLM_API_KEY }}
           # 중앙 비공개 pr-agent-settings 설정과 대상 PR에 모두 접근 가능한 Organization PAT
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
-          github_action_config.auto_review: "true"
-          github_action_config.auto_describe: "true"
-          github_action_config.auto_improve: "false"
-          github_action_config.handle_push_trigger: "true"
-          github_action_config.push_commands: '["/review", "/describe"]'
           # PR-Agent 2026-10-05 패치(#3908) 이후 전역 설정 저장소 이름을 명시해야 .pr_agent.toml이 적용됨
-          config.global_settings_repo: "pr-agent-settings"
           # 사용하는 LLM 인프라에 맞춰 아래 주소 중 하나를 활성화하십시오.
           # OPENAI_API_BASE: "https://api.z.ai/api/coding/paas/v4" # GLM 사용 시 (코딩 최적화 글로벌 엔드포인트)
           # OPENAI_API_BASE: "https://api.minimax.io/v1" # MiniMax 사용 시
-          OPENAI_API_BASE: "https://api.xiaomimimo.com/v1" # Xiaomi MiMo 사용 시 (OpenAI 호환 글로벌 엔드포인트)
+          OPENAI_API_BASE: "https://token-plan-sgp.xiaomimimo.com/v1" # Xiaomi MiMo 사용 시 (OpenAI 호환 글로벌 엔드포인트)
 ```
 
 ---
